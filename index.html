@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Interviewers Recognition</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/monday-sdk-js/dist/main.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -464,10 +465,13 @@
     return rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
   }
 
-  async function mondayQuery(token, query) {
+  // When running inside monday.com iframe, use session token auth header format
+  async function mondayQuery(token, query, isSessionToken = false) {
+    const headers = { "Content-Type": "application/json", "Authorization": token };
+    if (isSessionToken) headers["Authorization"] = token;
     const res = await fetch("https://api.monday.com/v2", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": token },
+      headers,
       body: JSON.stringify({ query })
     });
     return res.json();
@@ -601,8 +605,41 @@
     if (e.key === "Enter") submitToken();
   });
 
+  // Detect if running inside a monday.com iframe and use seamless auth
+  function isInsideMondayIframe() {
+    try {
+      return window.self !== window.top && typeof monday !== "undefined";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function loadWithSeamlessAuth() {
+    document.getElementById("loading").style.display = "block";
+    try {
+      const tokenRes = await monday.get("sessionToken");
+      const sessionToken = tokenRes.data;
+      const { interviewers, photoByName } = await loadData(sessionToken);
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      document.getElementById("footer").style.display = "block";
+      renderApp(interviewers, photoByName);
+    } catch (e) {
+      // Seamless auth failed — fall back to manual token screen
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("token-screen").style.display = "flex";
+    }
+  }
+
   // Auto-load if token is already saved
   (async () => {
+    // If inside monday.com iframe, use seamless auth (no token screen needed)
+    if (isInsideMondayIframe()) {
+      monday.execute("valueCreatedForUser");
+      await loadWithSeamlessAuth();
+      return;
+    }
+
     const saved = localStorage.getItem("monday_token");
     if (saved) {
       document.getElementById("loading").style.display = "block";
