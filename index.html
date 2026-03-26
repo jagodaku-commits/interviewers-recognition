@@ -617,13 +617,40 @@
   // Initialize monday SDK instance (the CDN exposes mondaySdk as a factory)
   const mondayClient = (typeof mondaySdk !== "undefined") ? mondaySdk() : null;
 
-  // Seamless auth: uses monday SDK to get a short-lived session token automatically.
-  // This is the equivalent of SeamlessApiClient from @mondaydotcomorg/api.
+  // Seamless auth: uses monday SDK's built-in api() method which proxies
+  // requests through monday.com, bypassing CORS restrictions.
   async function trySeamlessAuth() {
-    const tokenRes = await mondayClient.get("sessionToken");
-    const sessionToken = tokenRes.data;
-    if (!sessionToken) throw new Error("No session token returned");
-    const { interviewers, photoByName } = await loadData(sessionToken);
+    const boardData = await mondayClient.api(`
+      query {
+        boards(ids: [${BOARD_ID}]) {
+          items_page(limit: 200) {
+            items { name column_values { id text } }
+          }
+        }
+      }
+    `);
+    if (boardData.errors || !boardData.data) throw new Error("API error");
+
+    const items = boardData.data.boards[0].items_page.items;
+    const interviewers = items
+      .map(item => ({
+        name: item.name,
+        interviews: parseInt(item.column_values.find(c => c.id === NUMBERS_COL)?.text || "0", 10)
+      }))
+      .filter(i => i.interviews >= MIN_INTERVIEWS)
+      .sort((a, b) => b.interviews - a.interviews);
+
+    if (interviewers.length === 0) throw new Error("No data");
+
+    const missingNames = interviewers.map(i => i.name).filter(n => !PHOTO_MAP[n]);
+    const photoByName = { ...PHOTO_MAP };
+    if (missingNames.length > 0) {
+      const usersData = await mondayClient.api(`query { users(limit: 500) { name photo_thumb_small } }`);
+      (usersData.data?.users || []).forEach(u => {
+        if (missingNames.includes(u.name)) photoByName[u.name] = u.photo_thumb_small;
+      });
+    }
+
     showApp(interviewers, photoByName);
   }
 
