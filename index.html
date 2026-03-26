@@ -624,9 +624,13 @@
     showApp(interviewers, photoByName);
   }
 
+  function isInsideIframe() {
+    try { return window.self !== window.top; } catch (e) { return true; }
+  }
+
   (async () => {
-    // Method 1: Seamless auth — works when running inside a monday.com iframe
-    if (typeof monday !== "undefined") {
+    // Method 1: Seamless auth — only attempt when actually inside an iframe
+    if (isInsideIframe() && typeof monday !== "undefined") {
       document.getElementById("loading").style.display = "block";
       try {
         await trySeamlessAuth();
