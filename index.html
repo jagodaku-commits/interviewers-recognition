@@ -513,25 +513,19 @@
   async function loadData(token) {
     const items = await fetchAllItems(q => mondayQuery(token, q));
     const interviewers = buildRanking(items);
-
-    if (interviewers.length === 0) throw new Error("No data found on the board");
-
-    const missingNames = interviewers.map(i => i.name).filter(n => !PHOTO_MAP[n]);
-    const photoByName = { ...PHOTO_MAP };
-
-    if (missingNames.length > 0) {
-      const usersData = await mondayQuery(token, `query { users(limit: 500) { name photo_thumb_small } }`);
-      (usersData.data?.users || []).forEach(u => {
-        if (missingNames.includes(u.name)) photoByName[u.name] = u.photo_thumb_small;
-      });
-    }
-
+    const photoByName = interviewers.length > 0
+      ? await fetchPhotos(q => mondayQuery(token, q), interviewers)
+      : { ...PHOTO_MAP };
     return { interviewers, photoByName };
   }
 
   function renderApp(interviewers, photoByName) {
     const app = document.getElementById("app");
     app.innerHTML = "";
+    if (interviewers.length === 0) {
+      app.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);">No interviewers with 25+ interviews yet.</div>`;
+      return;
+    }
     const maxInterviews = interviewers[0].interviews;
 
     categories.forEach(({ label, min, color }, catIdx) => {
@@ -625,23 +619,27 @@
   // Initialize monday SDK instance (the CDN exposes mondaySdk as a factory)
   const mondayClient = (typeof mondaySdk !== "undefined") ? mondaySdk() : null;
 
-  // Seamless auth: uses monday SDK's built-in api() method which proxies
-  // requests through monday.com, bypassing CORS restrictions.
-  async function trySeamlessAuth() {
-    const items = await fetchAllItems(q => mondayClient.api(q));
-    const interviewers = buildRanking(items);
-
-    if (interviewers.length === 0) throw new Error("No data");
-
+  async function fetchPhotos(queryFn, interviewers) {
     const missingNames = interviewers.map(i => i.name).filter(n => !PHOTO_MAP[n]);
     const photoByName = { ...PHOTO_MAP };
     if (missingNames.length > 0) {
-      const usersData = await mondayClient.api(`query { users(limit: 500) { name photo_thumb_small } }`);
+      const usersData = await queryFn(`query { users(limit: 500) { name photo_thumb_small } }`);
       (usersData.data?.users || []).forEach(u => {
         if (missingNames.includes(u.name)) photoByName[u.name] = u.photo_thumb_small;
       });
     }
+    return photoByName;
+  }
 
+  // Seamless auth: uses monday SDK's built-in api() method which proxies
+  // requests through monday.com, bypassing CORS restrictions.
+  // Throws only on auth/network failure — not on empty data.
+  async function trySeamlessAuth() {
+    const items = await fetchAllItems(q => mondayClient.api(q));
+    const interviewers = buildRanking(items);
+    const photoByName = interviewers.length > 0
+      ? await fetchPhotos(q => mondayClient.api(q), interviewers)
+      : { ...PHOTO_MAP };
     showApp(interviewers, photoByName);
   }
 
@@ -657,7 +655,7 @@
         await trySeamlessAuth();
         return;
       } catch (e) {
-        // Seamless auth unavailable — fall back to manual token
+        // Seamless auth truly failed (network/auth error) — fall back to manual token
       }
     }
 
