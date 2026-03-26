@@ -417,7 +417,7 @@
   };
 
   const BOARD_ID = 18405400287;
-  const MIN_INTERVIEWS = 25;
+  const MIN_INTERVIEWS = 1;
 
   const categories = [
     { label: "+1000 interviews", min: 1000, color: "#6c3483" },
@@ -441,6 +441,7 @@
     { label: "+100 interviews",  min: 100,  color: "#e67e22" },
     { label: "+50 interviews",   min: 50,   color: "#f39c12" },
     { label: "+25 interviews",   min: 25,   color: "#f1c40f" },
+    { label: "+1 interview",     min: 1,    color: "#95a5a6" },
   ];
 
   const avatarColors = ["#0073ea","#e2445c","#00c875","#ffcb00","#ff642e","#a25ddc","#037f4c","#bb3354","#579bfc","#ff7575"];
@@ -523,7 +524,7 @@
     const app = document.getElementById("app");
     app.innerHTML = "";
     if (interviewers.length === 0) {
-      app.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);">No interviewers with 25+ interviews yet.</div>`;
+      app.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);">No interviews recorded yet.</div>`;
       return;
     }
     const maxInterviews = interviewers[0].interviews;
