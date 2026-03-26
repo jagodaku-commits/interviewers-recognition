@@ -614,10 +614,13 @@
     document.getElementById("token-screen").style.display = "flex";
   }
 
+  // Initialize monday SDK instance (the CDN exposes mondaySdk as a factory)
+  const mondayClient = (typeof mondaySdk !== "undefined") ? mondaySdk() : null;
+
   // Seamless auth: uses monday SDK to get a short-lived session token automatically.
   // This is the equivalent of SeamlessApiClient from @mondaydotcomorg/api.
   async function trySeamlessAuth() {
-    const tokenRes = await monday.get("sessionToken");
+    const tokenRes = await mondayClient.get("sessionToken");
     const sessionToken = tokenRes.data;
     if (!sessionToken) throw new Error("No session token returned");
     const { interviewers, photoByName } = await loadData(sessionToken);
@@ -629,8 +632,8 @@
   }
 
   (async () => {
-    // Method 1: Seamless auth — only attempt when actually inside an iframe
-    if (isInsideIframe() && typeof monday !== "undefined") {
+    // Method 1: Seamless auth — only attempt when actually inside a monday.com iframe
+    if (mondayClient && isInsideIframe()) {
       document.getElementById("loading").style.display = "block";
       try {
         await trySeamlessAuth();
