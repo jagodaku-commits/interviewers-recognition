@@ -465,13 +465,10 @@
     return rank === 1 ? "top1" : rank === 2 ? "top2" : rank === 3 ? "top3" : "";
   }
 
-  // When running inside monday.com iframe, use session token auth header format
-  async function mondayQuery(token, query, isSessionToken = false) {
-    const headers = { "Content-Type": "application/json", "Authorization": token };
-    if (isSessionToken) headers["Authorization"] = token;
+  async function mondayQuery(token, query) {
     const res = await fetch("https://api.monday.com/v2", {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json", "Authorization": token },
       body: JSON.stringify({ query })
     });
     return res.json();
@@ -605,56 +602,52 @@
     if (e.key === "Enter") submitToken();
   });
 
-  // Detect if running inside a monday.com iframe and use seamless auth
-  function isInsideMondayIframe() {
-    try {
-      return window.self !== window.top && typeof monday !== "undefined";
-    } catch (e) {
-      return false;
-    }
+  function showApp(interviewers, photoByName) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("footer").style.display = "block";
+    renderApp(interviewers, photoByName);
   }
 
-  async function loadWithSeamlessAuth() {
-    document.getElementById("loading").style.display = "block";
-    try {
-      const tokenRes = await monday.get("sessionToken");
-      const sessionToken = tokenRes.data;
-      const { interviewers, photoByName } = await loadData(sessionToken);
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("app").style.display = "block";
-      document.getElementById("footer").style.display = "block";
-      renderApp(interviewers, photoByName);
-    } catch (e) {
-      // Seamless auth failed — fall back to manual token screen
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("token-screen").style.display = "flex";
-    }
+  function showTokenScreen() {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("token-screen").style.display = "flex";
   }
 
-  // Auto-load if token is already saved
+  // Seamless auth: uses monday SDK to get a short-lived session token automatically.
+  // This is the equivalent of SeamlessApiClient from @mondaydotcomorg/api.
+  async function trySeamlessAuth() {
+    const tokenRes = await monday.get("sessionToken");
+    const sessionToken = tokenRes.data;
+    if (!sessionToken) throw new Error("No session token returned");
+    const { interviewers, photoByName } = await loadData(sessionToken);
+    showApp(interviewers, photoByName);
+  }
+
   (async () => {
-    // If inside monday.com iframe, use seamless auth (no token screen needed)
-    if (isInsideMondayIframe()) {
-      monday.execute("valueCreatedForUser");
-      await loadWithSeamlessAuth();
-      return;
+    // Method 1: Seamless auth — works when running inside a monday.com iframe
+    if (typeof monday !== "undefined") {
+      document.getElementById("loading").style.display = "block";
+      try {
+        await trySeamlessAuth();
+        return;
+      } catch (e) {
+        // Seamless auth unavailable — fall back to manual token
+      }
     }
 
+    // Fallback: manual API token (stored in localStorage)
     const saved = localStorage.getItem("monday_token");
     if (saved) {
       document.getElementById("loading").style.display = "block";
       try {
         const { interviewers, photoByName } = await loadData(saved);
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        document.getElementById("footer").style.display = "block";
-        renderApp(interviewers, photoByName);
+        showApp(interviewers, photoByName);
       } catch (e) {
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("token-screen").style.display = "flex";
+        showTokenScreen();
       }
     } else {
-      document.getElementById("token-screen").style.display = "flex";
+      showTokenScreen();
     }
   })();
 </script>
