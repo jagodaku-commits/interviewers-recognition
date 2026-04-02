@@ -633,9 +633,17 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
-    showDebug("Step 1: testing simplest query...");
-    const test1 = await mondayClient.api(`query { me { name } }`);
-    showDebug(`Step 1 result: ${JSON.stringify(test1)}`);
+    showDebug("Step 1a: raw string...");
+    let test1;
+    try {
+      test1 = await mondayClient.api(`query { me { name } }`);
+      showDebug(`Step 1a result: ${JSON.stringify(test1)}`);
+    } catch(e) {
+      showDebug(`Step 1a failed: ${e.message}\nTrying object form...`);
+      await new Promise(r => setTimeout(r, 2000));
+      test1 = await mondayClient.api({ query: `query { me { name } }` });
+      showDebug(`Step 1b object result: ${JSON.stringify(test1)}`);
+    }
     await new Promise(r => setTimeout(r, 3000));
 
     showDebug("Step 2: testing boards query...");
