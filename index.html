@@ -654,19 +654,32 @@
     try { return window.self !== window.top; } catch (e) { return true; }
   }
 
+  function showDebug(msg) {
+    document.getElementById("loading").innerHTML = `<div style="font-size:13px;color:#aaa;padding:20px;white-space:pre-wrap;">${msg}</div>`;
+    document.getElementById("loading").style.display = "block";
+  }
+
   (async () => {
+    const inIframe = isInsideIframe();
+    const hasClient = !!mondayClient;
+    showDebug(`isInsideIframe: ${inIframe}\nmondayClient exists: ${hasClient}\ntypeof mondaySdk: ${typeof mondaySdk}`);
+
+    await new Promise(r => setTimeout(r, 2000)); // show debug for 2s
+
     // Method 1: Seamless auth — only attempt when actually inside a monday.com iframe
-    if (mondayClient && isInsideIframe()) {
-      document.getElementById("loading").style.display = "block";
+    if (mondayClient && inIframe) {
+      document.getElementById("loading").innerHTML = `<div class="spinner"></div>Loading interviewers...`;
       try {
         await trySeamlessAuth();
         return;
       } catch (e) {
-        // Seamless auth truly failed (network/auth error) — fall back to manual token
+        showDebug(`Seamless auth failed: ${e.message}\n${e.stack}`);
+        await new Promise(r => setTimeout(r, 4000));
       }
     }
 
     // Fallback: manual API token (stored in localStorage)
+    document.getElementById("loading").innerHTML = `<div class="spinner"></div>Loading interviewers...`;
     const saved = localStorage.getItem("monday_token");
     if (saved) {
       document.getElementById("loading").style.display = "block";
