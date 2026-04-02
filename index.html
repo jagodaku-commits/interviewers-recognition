@@ -642,11 +642,15 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
+    showDebug("Step 1: calling fetchAllItems...");
     const items = await fetchAllItems(q => mondayClient.api(q));
+    showDebug(`Step 2: got ${items.length} items, building ranking...`);
     const interviewers = buildRanking(items);
+    showDebug(`Step 3: ${interviewers.length} interviewers, fetching photos...`);
     const photoByName = interviewers.length > 0
       ? await fetchPhotos(q => mondayClient.api(q), interviewers)
       : { ...PHOTO_MAP };
+    showDebug("Step 4: rendering app...");
     showApp(interviewers, photoByName, true);
   }
 
@@ -673,8 +677,8 @@
         await trySeamlessAuth();
         return;
       } catch (e) {
-        showDebug(`Seamless auth failed: ${e.message}\n${e.stack}`);
-        await new Promise(r => setTimeout(r, 4000));
+        showDebug(`Seamless auth failed:\n${e.message}\n\nStack:\n${e.stack}\n\nFull error:\n${JSON.stringify(e, Object.getOwnPropertyNames(e), 2)}`);
+        await new Promise(r => setTimeout(r, 10000));
       }
     }
 
