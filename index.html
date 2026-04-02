@@ -633,23 +633,10 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
-    showDebug("Step 1: getting session token...");
     const tokenRes = await mondayClient.get("sessionToken");
     const sessionToken = tokenRes.data;
-    showDebug(`Step 1 result: token=${sessionToken ? sessionToken.substring(0,20)+"..." : "EMPTY"}`);
     if (!sessionToken) throw new Error("No session token returned");
-    await new Promise(r => setTimeout(r, 2000));
-
-    showDebug("Step 2: calling API with session token...");
-    const test = await mondayQuery(sessionToken, `query { me { name } }`);
-    showDebug(`Step 2 result: ${JSON.stringify(test)}`);
-    await new Promise(r => setTimeout(r, 3000));
-
-    showDebug("Step 3: fetching all items...");
     const items = await fetchAllItems(q => mondayQuery(sessionToken, q));
-    showDebug(`Step 3: got ${items.length} items`);
-    await new Promise(r => setTimeout(r, 2000));
-
     const interviewers = buildRanking(items);
     const photoByName = interviewers.length > 0
       ? await fetchPhotos(q => mondayQuery(sessionToken, q), interviewers)
@@ -661,32 +648,19 @@
     try { return window.self !== window.top; } catch (e) { return true; }
   }
 
-  function showDebug(msg) {
-    document.getElementById("loading").innerHTML = `<div style="font-size:13px;color:#aaa;padding:20px;white-space:pre-wrap;">${msg}</div>`;
-    document.getElementById("loading").style.display = "block";
-  }
-
   (async () => {
-    const inIframe = isInsideIframe();
-    const hasClient = !!mondayClient;
-    showDebug(`isInsideIframe: ${inIframe}\nmondayClient exists: ${hasClient}\ntypeof mondaySdk: ${typeof mondaySdk}`);
-
-    await new Promise(r => setTimeout(r, 2000)); // show debug for 2s
-
     // Method 1: Seamless auth — only attempt when actually inside a monday.com iframe
-    if (mondayClient && inIframe) {
-      document.getElementById("loading").innerHTML = `<div class="spinner"></div>Loading interviewers...`;
+    if (mondayClient && isInsideIframe()) {
+      document.getElementById("loading").style.display = "block";
       try {
         await trySeamlessAuth();
         return;
       } catch (e) {
-        showDebug(`Seamless auth failed:\n${e.message}\n\nStack:\n${e.stack}\n\nFull error:\n${JSON.stringify(e, Object.getOwnPropertyNames(e), 2)}`);
-        await new Promise(r => setTimeout(r, 10000));
+        // Seamless auth failed — fall back to manual token
       }
     }
 
     // Fallback: manual API token (stored in localStorage)
-    document.getElementById("loading").innerHTML = `<div class="spinner"></div>Loading interviewers...`;
     const saved = localStorage.getItem("monday_token");
     if (saved) {
       document.getElementById("loading").style.display = "block";
