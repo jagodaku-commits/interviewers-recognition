@@ -520,11 +520,15 @@
     return { interviewers, photoByName };
   }
 
+  const LOGO_SRC = document.querySelector("#site-header img")?.src || "";
+
   function renderApp(interviewers, photoByName) {
     const app = document.getElementById("app");
-    app.innerHTML = "";
+    app.innerHTML = LOGO_SRC
+      ? `<div style="text-align:center;padding:24px 0 8px;"><img src="${LOGO_SRC}" height="32" alt="monday.com" /></div>`
+      : "";
     if (interviewers.length === 0) {
-      app.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);">No interviews recorded yet.</div>`;
+      app.innerHTML += `<div style="text-align:center;padding:60px;color:var(--text-muted);">No interviews recorded yet.</div>`;
       return;
     }
     const maxInterviews = interviewers[0].interviews;
