@@ -649,18 +649,31 @@
   }
 
   (async () => {
-    // Method 1: Seamless auth — only attempt when actually inside a monday.com iframe
+    // Priority 1: token in URL query param (for iframe embeds — set once in the URL)
+    const urlToken = new URLSearchParams(window.location.search).get("token");
+    if (urlToken) {
+      document.getElementById("loading").style.display = "block";
+      try {
+        const { interviewers, photoByName } = await loadData(urlToken);
+        showApp(interviewers, photoByName, isInsideIframe());
+        return;
+      } catch (e) {
+        // bad token in URL, fall through
+      }
+    }
+
+    // Priority 2: Seamless auth (proper monday app context)
     if (mondayClient && isInsideIframe()) {
       document.getElementById("loading").style.display = "block";
       try {
         await trySeamlessAuth();
         return;
       } catch (e) {
-        // Seamless auth failed — fall back to manual token
+        // fall through
       }
     }
 
-    // Fallback: manual API token (stored in localStorage)
+    // Priority 3: token saved in localStorage
     const saved = localStorage.getItem("monday_token");
     if (saved) {
       document.getElementById("loading").style.display = "block";
