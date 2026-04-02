@@ -633,37 +633,26 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
-    showDebug("Step 1a: raw string...");
-    let test1;
-    try {
-      test1 = await mondayClient.api(`query { me { name } }`);
-      showDebug(`Step 1a result: ${JSON.stringify(test1)}`);
-    } catch(e) {
-      showDebug(`Step 1a failed: ${e.message}\nTrying object form...`);
-      await new Promise(r => setTimeout(r, 2000));
-      test1 = await mondayClient.api({ query: `query { me { name } }` });
-      showDebug(`Step 1b object result: ${JSON.stringify(test1)}`);
-    }
+    showDebug("Step 1: getting session token...");
+    const tokenRes = await mondayClient.get("sessionToken");
+    const sessionToken = tokenRes.data;
+    showDebug(`Step 1 result: token=${sessionToken ? sessionToken.substring(0,20)+"..." : "EMPTY"}`);
+    if (!sessionToken) throw new Error("No session token returned");
+    await new Promise(r => setTimeout(r, 2000));
+
+    showDebug("Step 2: calling API with session token...");
+    const test = await mondayQuery(sessionToken, `query { me { name } }`);
+    showDebug(`Step 2 result: ${JSON.stringify(test)}`);
     await new Promise(r => setTimeout(r, 3000));
 
-    showDebug("Step 2: testing boards query...");
-    const test2 = await mondayClient.api(`query { boards(ids: ${BOARD_ID}) { name } }`);
-    showDebug(`Step 2 result: ${JSON.stringify(test2)}`);
-    await new Promise(r => setTimeout(r, 3000));
-
-    showDebug("Step 3: testing items_page...");
-    const test3 = await mondayClient.api(`query { boards(ids: ${BOARD_ID}) { items_page(limit: 5) { items { name } } } }`);
-    showDebug(`Step 3 result: ${JSON.stringify(test3)}`);
-    await new Promise(r => setTimeout(r, 3000));
-
-    showDebug("Step 4: fetching all items...");
-    const items = await fetchAllItems(q => mondayClient.api(q));
-    showDebug(`Step 4: got ${items.length} items`);
+    showDebug("Step 3: fetching all items...");
+    const items = await fetchAllItems(q => mondayQuery(sessionToken, q));
+    showDebug(`Step 3: got ${items.length} items`);
     await new Promise(r => setTimeout(r, 2000));
 
     const interviewers = buildRanking(items);
     const photoByName = interviewers.length > 0
-      ? await fetchPhotos(q => mondayClient.api(q), interviewers)
+      ? await fetchPhotos(q => mondayQuery(sessionToken, q), interviewers)
       : { ...PHOTO_MAP };
     showApp(interviewers, photoByName, true);
   }
