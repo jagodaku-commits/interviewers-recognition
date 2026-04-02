@@ -633,15 +633,30 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
-    showDebug("Step 1: calling fetchAllItems...");
+    showDebug("Step 1: testing simplest query...");
+    const test1 = await mondayClient.api(`query { me { name } }`);
+    showDebug(`Step 1 result: ${JSON.stringify(test1)}`);
+    await new Promise(r => setTimeout(r, 3000));
+
+    showDebug("Step 2: testing boards query...");
+    const test2 = await mondayClient.api(`query { boards(ids: ${BOARD_ID}) { name } }`);
+    showDebug(`Step 2 result: ${JSON.stringify(test2)}`);
+    await new Promise(r => setTimeout(r, 3000));
+
+    showDebug("Step 3: testing items_page...");
+    const test3 = await mondayClient.api(`query { boards(ids: ${BOARD_ID}) { items_page(limit: 5) { items { name } } } }`);
+    showDebug(`Step 3 result: ${JSON.stringify(test3)}`);
+    await new Promise(r => setTimeout(r, 3000));
+
+    showDebug("Step 4: fetching all items...");
     const items = await fetchAllItems(q => mondayClient.api(q));
-    showDebug(`Step 2: got ${items.length} items, building ranking...`);
+    showDebug(`Step 4: got ${items.length} items`);
+    await new Promise(r => setTimeout(r, 2000));
+
     const interviewers = buildRanking(items);
-    showDebug(`Step 3: ${interviewers.length} interviewers, fetching photos...`);
     const photoByName = interviewers.length > 0
       ? await fetchPhotos(q => mondayClient.api(q), interviewers)
       : { ...PHOTO_MAP };
-    showDebug("Step 4: rendering app...");
     showApp(interviewers, photoByName, true);
   }
 
