@@ -616,6 +616,7 @@
 
   // Initialize monday SDK instance (the CDN exposes mondaySdk as a factory)
   const mondayClient = (typeof mondaySdk !== "undefined") ? mondaySdk() : null;
+  if (mondayClient) mondayClient.setApiVersion("2024-01");
 
   async function fetchPhotos(queryFn, interviewers) {
     const missingNames = interviewers.map(i => i.name).filter(n => !PHOTO_MAP[n]);
@@ -633,13 +634,11 @@
   // requests through monday.com, bypassing CORS restrictions.
   // Throws only on auth/network failure — not on empty data.
   async function trySeamlessAuth() {
-    const tokenRes = await mondayClient.get("sessionToken");
-    const sessionToken = tokenRes.data;
-    if (!sessionToken) throw new Error("No session token returned");
-    const items = await fetchAllItems(q => mondayQuery(sessionToken, q));
+    // api() without a token uses postMessage to monday's parent frame (seamless auth)
+    const items = await fetchAllItems(q => mondayClient.api(q));
     const interviewers = buildRanking(items);
     const photoByName = interviewers.length > 0
-      ? await fetchPhotos(q => mondayQuery(sessionToken, q), interviewers)
+      ? await fetchPhotos(q => mondayClient.api(q), interviewers)
       : { ...PHOTO_MAP };
     showApp(interviewers, photoByName, true);
   }
